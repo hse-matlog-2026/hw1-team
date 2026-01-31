@@ -110,6 +110,11 @@ class Formula:
             The standard string representation of the current formula.
         """
         # Task 1.1
+        if is_variable(self.root) or is_constant(self.root):
+            return self.root
+        if is_unary(self.root):
+            return self.root + repr(self.first)
+        return '(' + repr(self.first) + self.root + repr(self.second) + ')'
 
     def __eq__(self, other: object) -> bool:
         """Compares the current formula with the given one.
@@ -146,6 +151,13 @@ class Formula:
             A set of all variable names used in the current formula.
         """
         # Task 1.2
+        if is_variable(self.root):
+            return {self.root}
+        if is_constant(self.root):
+            return set()
+        if is_unary(self.root):
+            return self.first.variables()
+        return self.first.variables() | self.second.variables()
 
     @memoized_parameterless_method
     def operators(self) -> Set[str]:
@@ -156,6 +168,13 @@ class Formula:
             current formula.
         """
         # Task 1.3
+        if is_variable(self.root):
+            return set()
+        if is_constant(self.root):
+            return {self.root}
+        if is_unary(self.root):
+            return {self.root} | self.first.operators()
+        return {self.root} | self.first.operators() | self.second.operators()
         
     @staticmethod
     def _parse_prefix(string: str) -> Tuple[Union[Formula, None], str]:
@@ -175,6 +194,54 @@ class Formula:
             is a string with some human-readable content.
         """
         # Task 1.4
+        if not string:
+            return None, 'Unexpected end of input'
+
+        if is_constant(string[0]):
+            return Formula(string[0]), string[1:]
+        if 'p' <= string[0] <= 'z':
+            i = 1
+            while i < len(string) and string[i].isdigit():
+                i += 1
+            name = string[:i]
+            if is_variable(name):
+                return Formula(name), string[i:]
+            return None, 'Bad variable name'
+
+        if string[0] == '~':
+            sub, rest = Formula._parse_prefix(string[1:])
+            if sub is None:
+                return None, rest
+            return Formula('~', sub), rest
+        if string[0] == '(':
+            left, remaining = Formula._parse_prefix(string[1:])
+            if left is None:
+                return None, remaining
+
+            if not remaining:
+                return None, 'Missing operator'
+
+            if remaining.startswith('&'):
+                o = '&'
+                remaining = remaining[1:]
+            elif remaining.startswith('|'):
+                o = '|'
+                remaining = remaining[1:]
+            elif remaining.startswith('->'):
+                o = '->'
+                remaining = remaining[2:]
+            else:
+                return None, 'Unknown operator'
+
+            right, remaining = Formula._parse_prefix(remaining)
+            if right is None:
+                return None, remaining
+
+            if not remaining or remaining[0] != ')':
+                return None, "Expected ')'"
+            return Formula(o, left, right), remaining[1:]
+
+        return None, 'Invalid prefix'
 
     @staticmethod
     def is_formula(string: str) -> bool:
@@ -188,6 +255,12 @@ class Formula:
             representation of a formula, ``False`` otherwise.
         """
         # Task 1.5
+        formula, rest = Formula._parse_prefix(string)
+        if rest != '':
+            return False
+        if formula is None:
+            return False
+        return True
         
     @staticmethod
     def parse(string: str) -> Formula:
@@ -201,6 +274,8 @@ class Formula:
         """
         assert Formula.is_formula(string)
         # Task 1.6
+        formula, rest = Formula._parse_prefix(string)
+        return formula
 
     def polish(self) -> str:
         """Computes the polish notation representation of the current formula.
@@ -276,3 +351,4 @@ class Formula:
                    is_binary(operator)
             assert substitution_map[operator].variables().issubset({'p', 'q'})
         # Task 3.4
+
