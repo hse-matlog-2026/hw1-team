@@ -283,6 +283,11 @@ class Formula:
         Returns:
             The polish notation representation of the current formula.
         """
+        if is_variable(self.root) or is_constant(self.root):
+            return self.root
+        if is_unary(self.root):
+            return self.root + self.first.polish()
+        return self.root + self.first.polish() + self.second.polish()
         # Optional Task 1.7
 
     @staticmethod
@@ -295,6 +300,32 @@ class Formula:
         Returns:
             A formula whose polish notation representation is the given string.
         """
+        def parse(i):
+            if i >= len(string):
+                return None, i
+            ch = string[i]
+            if ch == 'T' or ch == 'F':
+                return Formula(ch), i + 1
+            if 'p' <= ch <= 'z':
+                j = i + 1
+                while j < len(string) and string[j].isdigit():
+                    j += 1
+                return Formula(string[i:j]), j
+            if ch == '~':
+                sub, j = parse(i + 1)
+                return Formula('~', sub), j
+            if ch == '&' or ch == '|':
+                left, j = parse(i + 1)
+                right, k = parse(j)
+                return Formula(ch, left, right), k
+            if ch == '-': 
+                left, j = parse(i + 2)
+                right, k = parse(j)
+                return Formula('->', left, right), k
+
+            return None, i
+        formula, pos = parse(0)
+        return formula
         # Optional Task 1.8
 
     def substitute_variables(self, substitution_map: Mapping[str, Formula]) -> \
@@ -351,4 +382,5 @@ class Formula:
                    is_binary(operator)
             assert substitution_map[operator].variables().issubset({'p', 'q'})
         # Task 3.4
+
 
